@@ -2439,6 +2439,10 @@ TEST(CApiTest, FunctionalDispatchThreadsPropagateExplicitAndAutoValues) {
   };
 
   run_case(/*configured=*/7, /*expected=*/7);
+  // Two XCDs, each with seven CUs, can share twelve workers plus their callers.
+  // The shared pool must be wider than either individual XCD when requested.
+  run_case(/*configured=*/11, /*expected=*/11);
+  run_case(/*configured=*/99, /*expected=*/13);
   const auto loaded = config::load_config_from_string(functional_dispatch_threads_config(0),
                                                       rocjitsu::kEmbeddedSchema);
   run_case(/*configured=*/0, /*expected=*/loaded.execution_threads.dispatch.front());

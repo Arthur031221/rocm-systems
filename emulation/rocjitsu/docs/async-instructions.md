@@ -21,8 +21,8 @@ executes its own CUs while helpers can execute eligible MMA instructions.
 `async_helper_threads` extends the existing allocation tables. Omission or -1
 selects the configured policy; zero disables helpers. Explicit counts range
 from 0 to 128 and take priority over the automatic budget. Automatic selection
-uses CPU affinity, keeping engine/dispatch cost at most 32. Helpers are additive;
-the shipped single-GPU server presets stop at 48 total threads.
+uses CPU affinity and the target's allocation table. The shipped single-GPU
+server presets stop at 48 total threads, including helpers.
 
 | Budget / affinity | gfx950 E/D/H | gfx1250 E/D/H | Total execution threads |
 |---:|---:|---:|---:|
@@ -36,27 +36,27 @@ the shipped single-GPU server presets stop at 48 total threads.
 | 34 | 8/25/2 | 8/25/2 | 34 |
 | 36 | 8/25/4 | 8/25/4 | 36 |
 | 40 | 8/25/8 | 8/25/8 | 40 |
-| 48 and above | 8/25/16 | 8/25/16 | 48 |
+| 48 and above | 8/25/16 | 8/33/8 | 48 |
 
 A budget between entries selects the lower entry; 12 selects 8. Explicit
 `cpu_thread_budget` limits the combined allocation. Affinity of 64 still selects
-48: the measurements do not justify more than 16 preset helpers. Custom JSON
-allocations and explicit knobs remain available for experiments.
+48. Custom JSON allocations and explicit knobs remain available for experiments.
 
 Both targets preserve the synchronous engine/dispatch allocations through 32.
 Reserving helpers within that budget regressed Gluon FP16 by displacing CU
 workers, even with cached independence admission. Adding helpers above 32
 avoids that tradeoff. `async_helper_threads: 0` disables helpers while retaining
-8/25/0 on larger hosts. No workload classification is needed in the selector.
+8/25/0 on gfx950 and 8/33/0 on gfx1250 with sufficient affinity.
+No workload classification is needed in the selector.
 
-The 32-thread CPU cap is a conservative resource policy, not a universal
-throughput optimum. Extra dispatch workers can outperform extra helpers on
-CU-rich workloads such as large-grid Gluon FP16. Helpers offer their largest
-gains when few workgroups limit CU parallelism. The preset keeps the existing
-CPU allocation and spends additional affinity on this complementary path;
-helpers are created lazily, only when eligible MMA reaches the adapter.
+Extra dispatch workers can outperform extra helpers on large-grid workloads.
+The gfx1250 upper entry therefore reallocates eight helpers to dispatch after
+measuring a mix of IREE, Gluon and Tensile workloads. The gfx950 preset retains
+16 helpers, which benefit IREE MXFP4 and Tensile FP8. Helpers also help when few
+workgroups limit CU parallelism. They are created lazily, only when eligible
+MMA reaches the adapter.
 
-Desktop and MI210 presets retain 1/D/0 through D=32; CDNA3 retains the landed
+Desktop and MI210 presets retain 1/D/0 through D=32; CDNA3 retains the
 mixed E/D table with H=0. Two- and four-GPU presets keep **1/1/0** for RCCL.
 Mirage embeds these native tables in its RocJITsu backend and exposes the helper
 option alongside the engine, dispatch and total-budget options.

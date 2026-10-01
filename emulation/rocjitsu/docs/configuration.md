@@ -89,8 +89,8 @@ The example above is intentionally minimal.
 |---|---|---|
 | `max_ticks` | int | Maximum simulation ticks (0 = unlimited) |
 | `num_threads` | int | Simdojo engine partitions (one per XCD when partitioned). Omit for the default. |
-| `cpu_dispatch_threads` | int | Inclusive functional dispatch width per SoC. Omitted/0 selects a preferred allocation; 1 forces serial dispatch. Clamped to per-CP CU capacity. |
-| `cpu_thread_budget` | int | Automatic selection ceiling. Omitted/0 uses CPU affinity, with engine/dispatch cost capped at 32 and additive preset helpers up to 48 total; a positive value overrides the budget. |
+| `cpu_dispatch_threads` | int | Inclusive functional dispatch width per SoC. Omitted/0 selects a preferred allocation; 1 forces serial dispatch. Clamped to the shared worker capacity across XCDs. |
+| `cpu_thread_budget` | int | Automatic selection ceiling. Omitted/0 uses CPU affinity and the target table; a positive value overrides the budget. |
 | `async_helper_threads` | int | Shared MMA helpers per VM. Omitted/-1 selects the table; 0 disables; explicit values are 0–128. |
 | `thread_allocations` | array | Preferred `num_threads` / `cpu_dispatch_threads` / `async_helper_threads` triples, selected by total execution-thread cost. |
 | `exec_mode` | string | Execution mode. Use `"clocked"` for clocked execution; `"functional"` is the default/fallback. |
@@ -123,14 +123,17 @@ selects the largest effective allocation fitting the budget, after applying
 explicit knob overrides and topology limits. A budget between table entries
 uses the lower entry; it does not create workers merely to exhaust the budget.
 Later entries break ties. The automatic total budget is CPU affinity, with a
-minimum of one. Engine/dispatch cost stays capped at 32; helper entries may
-use additional affinity. Shipped presets stop at 48 total. A positive
-`cpu_thread_budget` overrides the budget, including the engine/dispatch cap. A config without a table uses serial defaults for unspecified
-knobs. Clocked mode uses only engines, capped by affinity/budget and XCD count.
+minimum of one. Each target's table determines its allocation ceiling; shipped
+presets stop at 48 total. A positive `cpu_thread_budget` overrides the budget.
+A config without a table uses serial defaults for unspecified knobs. Clocked
+mode uses only engines, capped by affinity/budget and XCD count, with an
+automatic ceiling of 32.
 
 Explicit engine, dispatch and helper values take precedence and may exceed the automatic
 ceiling. Engines are clamped to aggregate XCD count, and dispatch width to each
-SoC's largest per-CP CU count. No workload inspection is involved.
+SoC's shared worker capacity: one plus the sum of CUs-1 across its nonempty XCDs.
+Each submission still uses at most its own active CU count. No workload
+inspection is involved.
 
 Two separate contracts constrain consumers, and only the first is about the
 config file.
@@ -199,9 +202,10 @@ The single-GPU tables retain these synchronous engine/dispatch pairs (H=0):
 | 32 | 8/25 | 8/25 | 1/32 |
 
 The gfx950/gfx1250 tables also contain the [async MMA triples](async-instructions.md#thread-policy).
-Both keep 8/25/0 at 32 threads. Affinity above 32 selects additive helper rows
-at totals 34, 36, 40 and 48 (2, 4, 8 and 16 helpers). Larger hosts still select
-48. `async_helper_threads: 0` retains the synchronous choices above.
+Both keep 8/25/0 at 32 threads and add 2, 4 and 8 helpers at totals 34, 36 and 40.
+At 48, gfx950 selects 8/25/16 and gfx1250 selects 8/33/8. Disabling helpers
+retains those engine/dispatch widths. Desktop presets stop at 1/32/0.
+Larger hosts retain each target's highest entry.
 A budget of 12 selects the eight-thread row.
 
 Print allocations for any target without constructing a simulated GPU:

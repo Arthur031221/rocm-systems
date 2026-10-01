@@ -35,11 +35,12 @@ class ExecutionResources;
 
 namespace config {
 
-/// Default execution-thread ceiling, also used by the dispatch-only override.
+/// Default clocked-engine and legacy dispatch-only ceiling.
 ///
 /// This conservative policy limit bounds persistent worker allocation on
 /// large hosts while retaining substantial CU parallelism. It is not a
-/// hardware limit; embedding callers can override it.
+/// hardware limit; embedding callers can override it. Functional allocations
+/// instead take their ceiling from the target config's table.
 inline constexpr uint32_t kDefaultExecutionThreadCap = 32;
 /// Compatibility name for the older dispatch-only override API.
 inline constexpr uint32_t kDefaultCpuDispatchThreadCap = kDefaultExecutionThreadCap;
@@ -47,7 +48,7 @@ inline constexpr uint32_t kDefaultCpuDispatchThreadCap = kDefaultExecutionThread
 /// A single VM-wide budget includes engines, retained workers from every SoC's
 /// dispatch pool, and one shared async-helper pool. Explicit knobs take priority.
 struct ExecutionThreadRequest {
-  uint32_t budget = 0;   ///< Zero: affinity, with engine/dispatch capped at 32.
+  uint32_t budget = 0;   ///< Zero uses CPU affinity.
   uint32_t engines = 0;  ///< Zero selects from the table.
   uint32_t dispatch = 0; ///< Inclusive width per SoC; zero selects automatic sizing.
   int32_t helpers = -1;  ///< -1 selects automatic sizing; zero disables helpers.
@@ -207,7 +208,7 @@ struct LoadedConfig {
   /// Requested dispatch width. Omitted/zero selects from thread_allocations;
   /// each SoC's effective width is CU-capacity-clamped.
   uint32_t cpu_dispatch_threads = 0;
-  uint32_t cpu_thread_budget = 0; ///< Zero uses affinity; engine/dispatch stay capped at 32.
+  uint32_t cpu_thread_budget = 0; ///< Zero uses affinity and the target allocation table.
   /// Preserve old automatic-dispatch checkpoint metadata when saving again.
   bool legacy_auto_dispatch = false;
   int32_t async_helper_threads = -1;           ///< -1 selects from the table; zero disables.

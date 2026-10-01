@@ -36,15 +36,16 @@ other runtime service threads are outside this allocation.
 pairs. `resolve_execution_threads()` is a pure function: apply explicit overrides
 and topology clamps, calculate each entry's total retained thread count, and
 choose the largest fitting entry. Later entries break ties. It does not fill
-unused budget between entries. The default budget is CPU affinity capped at 32;
+unused budget between entries. The default budget is CPU affinity;
 `cpu_thread_budget` overrides that default. A larger budget can select larger
 entries from a custom table. Explicit knob settings take priority over a budget.
 
-The synchronous granules measured below stop at 32. The eight-XCD tables include a 24-thread entry;
+The initial synchronous granules measured below stop at 32. The eight-XCD tables include a 24-thread entry;
 otherwise their granules are powers of two. At 32 with async helpers disabled, gfx950 and gfx1250 select
 8 engine threads and inclusive dispatch width 25. The [async MMA extension](async-instructions.md)
-adds helper allocations and uses E + sum(D - 1) + H for the total budget. Desktop presets select one
-engine and dispatch width 32. See [the allocation table](configuration.md#thread-accounting-and-preferred-allocations).
+adds helper allocations and uses E + sum(D - 1) + H for the total budget.
+The current gfx1250 preset allows a wider dispatch allocation; see
+[the allocation table](configuration.md#thread-accounting-and-preferred-allocations).
 
 The initial entries were screened in the previous study, then checked on this
 standalone branch with the synchronous kernels. The final tables below report

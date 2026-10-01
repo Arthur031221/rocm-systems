@@ -66,7 +66,7 @@ keep all XCDs on one engine partition.
 The host-thread width used to execute accepted CU work in functional mode. A
 nonzero value is applied per SoC and shared by all command processors in that
 SoC. Omission or `0` selects a preferred allocation from `thread_allocations`;
-`1` forces serial dispatch. The effective width is capped by per-CP CU capacity.
+`1` forces serial dispatch. The effective width is capped by the shared worker capacity across XCDs.
 Clocked mode always uses a width of one.
 
 ### `async_helper_threads`
@@ -80,7 +80,8 @@ other shipped targets and multi-GPU defaults keep H=0. See
 ### Execution budget and preferred allocations
 
 `cpu_thread_budget` is a ceiling for engines, retained dispatch workers and shared MMA helpers:
-E + sum(D - 1) + H. Its default is process affinity capped at 32.
+E + sum(D - 1) + H. Its default is process affinity; the target table determines
+the allocation ceiling.
 A positive value overrides the ceiling. The selector picks the largest fitting
 entry in `thread_allocations`; it leaves unused budget between granules.
 Explicit E/D/H knobs take priority and may exceed the automatic budget. A config
